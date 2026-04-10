@@ -9,9 +9,7 @@ import pandas as pd
 import json
 import urllib.request
 import urllib.parse
-import requests
 import io
-import base64
 from pathlib import Path
 from datetime import datetime
 
@@ -22,36 +20,6 @@ REFINED_JSON = DATA_DIR / "exm_refined.json"
 DECISIONS_JSON = APP_DIR / "paper_decisions.json"
 CUSTOM_PAPERS_JSON = APP_DIR / "paper_custom_additions.json"
 S2_API_KEY = "peed9692To8iAr6sYYdBnapbP87v59jkXLH0PFWc"
-
-# GitHub-backed persistence (for Streamlit Cloud deployment)
-# Set these in Streamlit secrets (.streamlit/secrets.toml) or environment
-GITHUB_REPO = st.secrets.get("github", {}).get("repo", "")       # e.g. "yixi6liu/JBC-review-paper-manager"
-GITHUB_TOKEN = st.secrets.get("github", {}).get("token", "")     # GitHub PAT with repo scope
-USE_GITHUB = bool(GITHUB_REPO and GITHUB_TOKEN)
-
-
-def _gh_read_file(path: str) -> str | None:
-    """Read a file from the GitHub repo."""
-    r = requests.get(f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
-                     headers={"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"})
-    if r.status_code == 200:
-        return base64.b64decode(r.json()["content"]).decode("utf-8")
-    return None
-
-
-def _gh_write_file(path: str, content: str, message: str):
-    """Write a file to the GitHub repo (create or update)."""
-    # Get current sha if file exists
-    r = requests.get(f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
-                     headers={"Authorization": f"token {GITHUB_TOKEN}"})
-    sha = r.json().get("sha") if r.status_code == 200 else None
-
-    payload = {"message": message, "content": base64.b64encode(content.encode("utf-8")).decode("ascii")}
-    if sha:
-        payload["sha"] = sha
-
-    requests.put(f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
-                 headers={"Authorization": f"token {GITHUB_TOKEN}"}, json=payload)
 
 SECTIONS = [
     "S2: Chemistry", "S3.1: Pre-expansion protein", "S3.2: Post-expansion protein",
@@ -203,27 +171,19 @@ def load_papers() -> pd.DataFrame:
 
 
 def load_decisions() -> dict:
-    raw = {}
-    if USE_GITHUB:
-        content = _gh_read_file("paper_decisions.json")
-        if content:
-            raw = json.loads(content)
-    elif DECISIONS_JSON.exists():
+    if DECISIONS_JSON.exists():
         with open(DECISIONS_JSON) as f:
             raw = json.load(f)
-    out = {}
-    for doi, val in raw.items():
-        out[doi] = val if isinstance(val, dict) else {"decision": val, "sections": [], "notes": ""}
-    return out
+        out = {}
+        for doi, val in raw.items():
+            out[doi] = val if isinstance(val, dict) else {"decision": val, "sections": [], "notes": ""}
+        return out
+    return {}
 
 
 def save_decisions(d: dict):
-    content = json.dumps(d, indent=2, ensure_ascii=False)
-    if USE_GITHUB:
-        _gh_write_file("paper_decisions.json", content, f"Update decisions {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    else:
-        with open(DECISIONS_JSON, "w") as f:
-            f.write(content)
+    with open(DECISIONS_JSON, "w") as f:
+        json.dump(d, f, indent=2, ensure_ascii=False)
 
 
 def get_dec(d, doi): return (d.get(doi) or {}).get("decision", "Pending") if isinstance(d.get(doi), dict) else (d.get(doi, "Pending") if isinstance(d.get(doi), str) else "Pending")
@@ -237,19 +197,8 @@ def set_field(d, doi, **kw):
     d[doi].update(kw)
 
 
-def load_custom():
-    if USE_GITHUB:
-        content = _gh_read_file("paper_custom_additions.json")
-        return json.loads(content) if content else []
-    return json.load(open(CUSTOM_PAPERS_JSON)) if CUSTOM_PAPERS_JSON.exists() else []
-
-def save_custom(p):
-    content = json.dumps(p, indent=2, ensure_ascii=False)
-    if USE_GITHUB:
-        _gh_write_file("paper_custom_additions.json", content, f"Add custom paper {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    else:
-        with open(CUSTOM_PAPERS_JSON, "w") as f:
-            f.write(content)
+def load_custom(): return json.load(open(CUSTOM_PAPERS_JSON)) if CUSTOM_PAPERS_JSON.exists() else []
+def save_custom(p): json.dump(p, open(CUSTOM_PAPERS_JSON, "w"), indent=2, ensure_ascii=False)
 
 
 def fetch_doi(doi):
