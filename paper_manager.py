@@ -25,7 +25,7 @@ S2_API_KEY = "peed9692To8iAr6sYYdBnapbP87v59jkXLH0PFWc"
 
 # GitHub-backed persistence (for Streamlit Cloud deployment)
 # Set these in Streamlit secrets (.streamlit/secrets.toml) or environment
-GITHUB_REPO = st.secrets.get("github", {}).get("repo", "")       # e.g. "yixi6liu/exm-paper-manager"
+GITHUB_REPO = st.secrets.get("github", {}).get("repo", "")       # e.g. "yixi6liu/JBC-review-paper-manager"
 GITHUB_TOKEN = st.secrets.get("github", {}).get("token", "")     # GitHub PAT with repo scope
 USE_GITHUB = bool(GITHUB_REPO and GITHUB_TOKEN)
 
