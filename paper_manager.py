@@ -142,6 +142,7 @@ def parse_paper_row(p: dict) -> dict:
         "title": p.get("title", ""),
         "first_author": first_author,
         "authors": author_str,
+        "authors_all": ", ".join(a if isinstance(a, str) else str(a) for a in authors).lower(),
         "year": p.get("year", 0),
         "venue": venue,
         "jcr": jcr_rank(venue),
@@ -321,7 +322,7 @@ df_filtered = df_filtered.sort_values(sort_col, ascending=sort_asc)
 if search_q:
     q = search_q.lower()
     df_filtered = df_filtered[df_filtered["title"].str.lower().str.contains(q, na=False)
-                              | df_filtered["authors"].str.lower().str.contains(q, na=False)]
+                              | df_filtered["authors_all"].str.contains(q, na=False)]
 
 # --- Tabs ---
 tab_cards, tab_table, tab_add, tab_share, tab_export = st.tabs([
